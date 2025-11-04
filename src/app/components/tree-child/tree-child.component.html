@@ -1,0 +1,9 @@
+<div class="tree-child">
+  @if (node$ | async; as node) {
+  <span class="node-id">ID: {{ node.id }}</span>
+  <span class="node-name">{{ node.name }}</span>
+  <span class="badge">Parents: {{ node.parentIds.join(", ") }}</span>
+  } @else {
+  <span class="loading-text">לא מופיע במסך</span>
+  }
+</div>

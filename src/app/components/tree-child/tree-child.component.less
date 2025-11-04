@@ -1,0 +1,104 @@
+.tree-child {
+  display: inline-flex;
+  vertical-align: top;
+  width: 100px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  background-color: rgba(139, 92, 246, 0.1);
+  border-left: 4px solid #8b5cf6;
+  padding: 8px;
+  margin-left: 40px;
+  margin-right: 8px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s, border-color 0.2s;
+  font-size: 0.875rem;
+  min-height: 60px;
+
+  &.last-child {
+    margin-bottom: 8px;
+  }
+
+  &:hover {
+    background-color: rgba(139, 92, 246, 0.2);
+  }
+
+  &.loading {
+    border-left-color: #f59e0b;
+    background-color: rgba(245, 158, 11, 0.1);
+  }
+
+  &.visible {
+    animation: fadeIn 0.3s ease-in;
+  }
+
+  .node-id,
+  .node-name,
+  .badge {
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #e2e8f0;
+  }
+
+  .node-id {
+    color: #94a3b8;
+    font-size: 0.75rem;
+  }
+
+  .badge {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    padding: 4px 6px;
+    border-radius: 3px;
+    font-size: 0.65rem;
+  }
+
+  .loading-state,
+  .error-state {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .spinner {
+    font-size: 1.2rem;
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  .loading-text {
+    color: #f59e0b;
+    font-size: 0.75rem;
+  }
+
+  .error-text {
+    color: #ef4444;
+    font-size: 0.75rem;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
