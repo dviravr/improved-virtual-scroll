@@ -26,7 +26,7 @@ export class TreeDataService {
   /**
    * Get all nodes
    */
-  getAllNodes(): Record<number, TreeNode> {
+  getAllNodes(): Record<string, TreeNode> {
     return TREE_MOCK_DATA;
   }
 

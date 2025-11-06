@@ -1,17 +1,17 @@
 export type TreeNode = ChildNode | ParentNode;
 
 export interface ChildNode {
-  id: number;
+  id: string;
   name: string;
   childrenIds: null;
-  parentIds: number[];
+  parentIds: string[];
   type: "child";
 }
 
 export interface ParentNode {
-  id: number;
+  id: string;
   name: string;
-  childrenIds: number[];
-  parentId?: number;
+  childrenIds: string[];
+  parentId?: string;
   type: "parent";
 }

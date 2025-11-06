@@ -3,53 +3,106 @@ import { Component, OnInit } from "@angular/core";
 import { TreeChildComponent } from "./components/tree-child/tree-child.component";
 import { TreeNode } from "./models/tree-node.interface";
 import { TreeDataService } from "./services/tree-data.service";
+import { VisibilityService } from "./services/visibility.service";
+import { VisibilityTrackerDirective } from "./directives/visibility-tracker.directive";
+import { isNil, keys, pickBy } from "lodash";
 
 export interface FlatArrayItem {
   type: "parent" | "child";
-  id: number;
+  id: string;
   level: number;
 }
 
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [TreeChildComponent, CommonModule],
+  imports: [TreeChildComponent, CommonModule, VisibilityTrackerDirective],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.less",
 })
 export class AppComponent implements OnInit {
   title = "ad-demo";
   flatArray: FlatArrayItem[] = [];
-  parentOpenState: Record<number, boolean> = {};
-  visibleIds: Record<number, boolean> = {};
-  visibleItems: FlatArrayItem[] = [];
+  originalArray: FlatArrayItem[] = [];
+  parentOpenState: Record<string, boolean> = {};
+  visibleNodes: Record<string, boolean> = {};
 
-  constructor(private treeDataService: TreeDataService) {}
+  startIndex: number = 0;
+  endIndex: number = 40;
+
+  constructor(
+    private treeDataService: TreeDataService,
+    public visibilityService: VisibilityService
+  ) {}
 
   ngOnInit(): void {
     this.flatArray = this.generateFlatArray();
+    this.originalArray = [...this.flatArray];
+  }
+
+  findOriginalIndex(id: string): number {
+    return this.originalArray.findIndex((item) => item.id === id);
   }
 
   /**
-   * Track visibility changes for items
+   * Track visibility changes for items by index
    */
-  onVisibilityChange(event: { id: number; isVisible: boolean }): void {
-    this.visibleIds[event.id] = event.isVisible;
+  onVisibilityChange(id: string, isVisible: boolean): void {
+    const beforeValue = this.visibleNodes[id];
+    this.visibleNodes[id] = isVisible;
+
+    if (!isNil(beforeValue)) {
+      this.updateIndexRange();
+    }
+  }
+
+  updateIndexRange(): void {
+    const visibleItems = this.getVisibleLength();
+    console.log("visibleItems", visibleItems);
+    let firstVisibleIndex: number | undefined;
+    let lastVisibleIndex: number | undefined;
+
+    this.flatArray.forEach((item, index) => {
+      if (this.visibleNodes[item.id]) {
+        if (isNil(firstVisibleIndex)) firstVisibleIndex = index;
+        lastVisibleIndex = index;
+      }
+    });
+
+    if (isNil(firstVisibleIndex) || isNil(lastVisibleIndex)) {
+      console.error("No visible items found");
+      return;
+    }
+
+    this.startIndex = Math.max(0, firstVisibleIndex - visibleItems);
+    this.endIndex = Math.min(
+      this.flatArray.length,
+      lastVisibleIndex + visibleItems + 1
+    );
+  }
+
+  getVisibleLength(): number {
+    return keys(pickBy(this.visibleNodes, Boolean)).length;
   }
 
   /**
    * Toggle a parent's open/closed state
    */
-  toggleParent(parentId: number): void {
-    this.parentOpenState[parentId] = !this.parentOpenState[parentId];
+  toggleParent(parentId: string): void {
+    this.parentOpenState[parentId] = isNil(this.parentOpenState[parentId])
+      ? false
+      : !this.parentOpenState[parentId];
+
     this.flatArray = this.generateFlatArray();
+
+    this.endIndex = this.startIndex + this.getVisibleLength();
   }
 
   /**
    * Check if a parent is open
    */
-  isParentOpen(parentId: number): boolean {
-    return this.parentOpenState[parentId] ?? false;
+  isParentOpen(parentId: string): boolean {
+    return this.parentOpenState[parentId] ?? true;
   }
 
   /**
