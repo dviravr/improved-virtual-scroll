@@ -16,7 +16,7 @@ export interface FlatArrayItem {
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [TreeChildComponent, CommonModule, VisibilityTrackerDirective],
+  imports: [CommonModule, VisibilityTrackerDirective],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.less",
 })
