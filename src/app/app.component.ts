@@ -1,16 +1,16 @@
 import { CommonModule } from "@angular/common";
-import { Component, OnInit } from "@angular/core";
-import { TreeChildComponent } from "./components/tree-child/tree-child.component";
+import { Component, ElementRef, OnInit, ViewChild } from "@angular/core";
+import { isNil, keys } from "lodash";
+import { VisibilityTrackerDirective } from "./directives/visibility-tracker.directive";
 import { TreeNode } from "./models/tree-node.interface";
 import { TreeDataService } from "./services/tree-data.service";
 import { VisibilityService } from "./services/visibility.service";
-import { VisibilityTrackerDirective } from "./directives/visibility-tracker.directive";
-import { isNil, keys, pickBy } from "lodash";
 
 export interface FlatArrayItem {
   type: "parent" | "child";
   id: string;
   level: number;
+  currentParentId: string;
 }
 
 @Component({
@@ -30,6 +30,11 @@ export class AppComponent implements OnInit {
   startIndex: number = 0;
   endIndex: number = 40;
 
+  maxCardsPerRow: number = 4;
+
+  @ViewChild("treeList", { read: ElementRef })
+  treeListRef?: ElementRef<HTMLDivElement>;
+
   constructor(
     private treeDataService: TreeDataService,
     public visibilityService: VisibilityService
@@ -44,21 +49,54 @@ export class AppComponent implements OnInit {
     return this.originalArray.findIndex((item) => item.id === id);
   }
 
+  timeout: any = null;
   /**
    * Track visibility changes for items by index
    */
   onVisibilityChange(id: string, isVisible: boolean): void {
-    const beforeValue = this.visibleNodes[id];
-    this.visibleNodes[id] = isVisible;
+    if (isVisible) {
+      this.visibleNodes[id] = true;
+    } else {
+      delete this.visibleNodes[id];
+    }
 
-    if (!isNil(beforeValue)) {
+    if (this.visibleNodes[id]) {
       this.updateIndexRange();
     }
   }
 
+  getBgColor(item: FlatArrayItem): string {
+    const parent = this.treeDataService.getAllNodes()[item.currentParentId];
+    const itemIndexInChildren = parent?.childrenIds?.indexOf(item.id)!;
+    const itemIndexInRow = itemIndexInChildren % this.maxCardsPerRow;
+
+    if (itemIndexInRow === 0) {
+      return "rgba(236, 72, 153, 0.2)";
+    } else if (itemIndexInRow === 1) {
+      return "rgba(59, 130, 246, 0.2)";
+    } else if (itemIndexInRow === 2) {
+      return "rgba(139, 92, 246, 0.2)";
+    } else {
+      return "rgba(72, 236, 113, 0.2)";
+    }
+  }
+
+  getElementStartOfRowIndex(item: FlatArrayItem): number {
+    const parent = this.treeDataService.getAllNodes()[item.currentParentId];
+    const itemIndexInChildren = parent?.childrenIds?.indexOf(item.id)!;
+    const itemIndexInRow = itemIndexInChildren % this.maxCardsPerRow;
+    const startOfRowIndex = itemIndexInChildren - itemIndexInRow;
+    const startOfRowItemId = parent?.childrenIds?.[startOfRowIndex];
+
+    return this.flatArray.findIndex((i) => i.id === startOfRowItemId);
+  }
+
   updateIndexRange(): void {
+    if ((this.treeListRef?.nativeElement as HTMLDivElement).scrollTop === 0) {
+      (this.treeListRef?.nativeElement as HTMLDivElement).scrollTop = 1;
+    }
+
     const visibleItems = this.getVisibleLength();
-    console.log("visibleItems", visibleItems);
     let firstVisibleIndex: number | undefined;
     let lastVisibleIndex: number | undefined;
 
@@ -74,15 +112,23 @@ export class AppComponent implements OnInit {
       return;
     }
 
-    this.startIndex = Math.max(0, firstVisibleIndex - visibleItems);
+    const startIndex = Math.max(0, firstVisibleIndex - visibleItems);
+    const item = this.flatArray[startIndex];
+
+    if (item.type === "child") {
+      this.startIndex = this.getElementStartOfRowIndex(item);
+    } else {
+      this.startIndex = startIndex;
+    }
+
     this.endIndex = Math.min(
       this.flatArray.length,
-      lastVisibleIndex + visibleItems + 1
+      lastVisibleIndex + visibleItems
     );
   }
 
   getVisibleLength(): number {
-    return keys(pickBy(this.visibleNodes, Boolean)).length;
+    return keys(this.visibleNodes).length;
   }
 
   /**
@@ -119,6 +165,7 @@ export class AppComponent implements OnInit {
         type: parent.type,
         id: parent.id,
         level: 0,
+        currentParentId: "root",
       });
 
       if (this.isParentOpen(parent.id)) {
@@ -130,6 +177,7 @@ export class AppComponent implements OnInit {
             type: child.type,
             id: child.id,
             level: 1,
+            currentParentId: parent.id,
           });
 
           // Add each child of this parent if parent is open
@@ -141,6 +189,7 @@ export class AppComponent implements OnInit {
                 type: node.type,
                 id: node.id,
                 level: 2,
+                currentParentId: child.id,
               });
             });
           }

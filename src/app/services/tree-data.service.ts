@@ -1,8 +1,8 @@
 import { Injectable } from "@angular/core";
-import { Observable, of, delay, map } from "rxjs";
-import { pick, pickBy, values } from "lodash";
-import { TreeNode, ChildNode, ParentNode } from "../models/tree-node.interface";
+import { pickBy, values } from "lodash";
+import { delay, Observable, of } from "rxjs";
 import { TREE_MOCK_DATA } from "../data/tree-mock.data";
+import { ChildNode, ParentNode, TreeNode } from "../models/tree-node.interface";
 
 @Injectable({
   providedIn: "root",
