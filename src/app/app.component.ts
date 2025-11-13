@@ -27,6 +27,9 @@ export class AppComponent implements OnInit {
   parentOpenState: Record<string, boolean> = {};
   visibleNodes: Record<string, boolean> = {};
 
+  firstVisibleIndex: number = 0;
+  lastVisibleIndex: number = 0;
+
   startIndex: number = 0;
   endIndex: number = 40;
 
@@ -112,6 +115,9 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    this.firstVisibleIndex = firstVisibleIndex;
+    this.lastVisibleIndex = lastVisibleIndex;
+
     const startIndex = Math.max(0, firstVisibleIndex - visibleItems);
     const item = this.flatArray[startIndex];
 
@@ -129,6 +135,23 @@ export class AppComponent implements OnInit {
 
   getVisibleLength(): number {
     return keys(this.visibleNodes).length;
+  }
+
+  /**
+   * Calculate scrollbar thumb position as percentage
+   */
+  getScrollbarTop(): number {
+    if (this.flatArray.length === 0) return 0;
+    return (this.firstVisibleIndex / this.flatArray.length) * 100;
+  }
+
+  /**
+   * Calculate scrollbar thumb height as percentage
+   */
+  getScrollbarHeight(): number {
+    if (this.flatArray.length === 0) return 0;
+    const visibleRange = this.lastVisibleIndex - this.firstVisibleIndex + 1;
+    return (visibleRange / this.flatArray.length) * 100;
   }
 
   /**
