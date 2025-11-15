@@ -1,6 +1,6 @@
 import { CommonModule } from "@angular/common";
 import { Component, ElementRef, OnInit, ViewChild } from "@angular/core";
-import { isNil, keys } from "lodash";
+import { isEmpty, isNil, keys, values } from "lodash";
 import { VisibilityTrackerDirective } from "./directives/visibility-tracker.directive";
 import { TreeNode } from "./models/tree-node.interface";
 import { TreeDataService } from "./services/tree-data.service";
@@ -31,7 +31,10 @@ export class AppComponent implements OnInit {
   lastVisibleIndex: number = 0;
 
   startIndex: number = 0;
-  endIndex: number = 40;
+  buffer = 40;
+  endIndex: number = this.startIndex + this.buffer;
+
+  rowHeight = 60; // px – תתאים למה שיש לך ב-CSS
 
   maxCardsPerRow: number = 4;
 
@@ -48,6 +51,14 @@ export class AppComponent implements OnInit {
     this.originalArray = [...this.flatArray];
   }
 
+  scrollToIndex(index: number): void {
+    const container = this.treeListRef?.nativeElement;
+    if (!container) return;
+
+    const targetScrollTop = index * this.rowHeight;
+    container.scrollTop = targetScrollTop;
+  }
+
   findOriginalIndex(id: string): number {
     return this.originalArray.findIndex((item) => item.id === id);
   }
@@ -56,18 +67,49 @@ export class AppComponent implements OnInit {
   /**
    * Track visibility changes for items by index
    */
+
+  getStarIndexByScrollPosition(): number {
+    const el = this.treeListRef?.nativeElement;
+    if (!el) return this.startIndex;
+
+    const scrollTop = el.scrollTop;
+    const maxScroll = el.scrollHeight - el.clientHeight;
+
+    const scrollPercent = scrollTop / maxScroll;
+
+    const newStart = this.getStartIndexFromScrollPercent(scrollPercent);
+
+    return newStart;
+  }
+
+  getStartIndexFromScrollPercent(scrollPercent: number): number {
+    const total = this.flatArray.length;
+    const maxStart = total - this.buffer;
+
+    return Math.floor(scrollPercent * maxStart);
+  }
+
+  onScroll() {
+    if (isEmpty(values(this.visibleNodes))) {
+      const idx = this.getStarIndexByScrollPosition();
+
+      this.startIndex = idx;
+      this.endIndex = this.startIndex + this.buffer;
+
+      this.scrollToIndex(this.startIndex);
+    }
+  }
+
   onVisibilityChange(id: string, isVisible: boolean): void {
     if (isVisible) {
       this.visibleNodes[id] = true;
     } else {
       delete this.visibleNodes[id];
     }
-
     if (this.visibleNodes[id]) {
       this.updateIndexRange();
     }
   }
-
   getBgColor(item: FlatArrayItem): string {
     const parent = this.treeDataService.getAllNodes()[item.currentParentId];
     const itemIndexInChildren = parent?.childrenIds?.indexOf(item.id)!;
@@ -143,6 +185,14 @@ export class AppComponent implements OnInit {
   getScrollbarTop(): number {
     if (this.flatArray.length === 0) return 0;
     return (this.firstVisibleIndex / this.flatArray.length) * 100;
+  }
+
+  get topSpacerHeight(): number {
+    return this.startIndex * this.rowHeight;
+  }
+
+  get bottomSpacerHeight(): number {
+    return (this.flatArray.length - this.endIndex) * this.rowHeight;
   }
 
   /**
