@@ -53,6 +53,14 @@
           font-size: 0.75rem;
           color: #86efac;
         }
+
+        &.selected-count {
+          background-color: rgba(139, 92, 246, 0.2);
+          padding: 2px 8px;
+          border-radius: 3px;
+          font-size: 0.75rem;
+          color: #c4b5fd;
+        }
       }
 
       .info-separator {
@@ -89,7 +97,6 @@
       display: flex;
       gap: 12px;
     }
-
 
     .tree-list {
       display: flex;
@@ -136,20 +143,63 @@
         cursor: pointer;
         user-select: none;
         margin-bottom: 8px;
+        justify-content: space-between;
 
         &:hover {
           background-color: rgba(59, 130, 246, 0.3);
         }
+
+        .checkbox-container {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-left: auto;
+          padding: 4px 8px;
+          cursor: pointer;
+          user-select: none;
+          border-radius: 4px;
+          transition: background-color 0.2s;
+
+          &:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+          }
+
+          input[type="checkbox"] {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+            accent-color: #3b82f6;
+          }
+
+          .checkbox-label {
+            color: #e2e8f0;
+            font-size: 0.875rem;
+            font-weight: 500;
+          }
+        }
       }
 
       &.child {
-        width: 140px;
-        height: 40px;
+        width: 175px;
+        height: 60px;
         background-color: rgba(139, 92, 246, 0.2);
         display: flex;
         align-items: center;
         justify-content: center;
         font-weight: 600;
+        cursor: pointer;
+        border: 2px solid transparent;
+        box-sizing: border-box;
+        transition: border-color 0.2s, box-shadow 0.2s;
+
+        &:hover {
+          border-color: rgba(139, 92, 246, 0.5);
+        }
+
+        &.selected {
+          border-color: #8b5cf6;
+          box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3);
+        }
       }
 
       .toggle-icon {

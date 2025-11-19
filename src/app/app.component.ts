@@ -1,7 +1,14 @@
 import { CommonModule } from "@angular/common";
-import { Component, ElementRef, OnInit, ViewChild } from "@angular/core";
+import {
+  Component,
+  ElementRef,
+  OnInit,
+  OnDestroy,
+  ViewChild,
+} from "@angular/core";
 import { isEmpty, isNil, keys, values } from "lodash";
 import { VisibilityTrackerDirective } from "./directives/visibility-tracker.directive";
+import { IndeterminateCheckboxDirective } from "./directives/indeterminate-checkbox.directive";
 import { TreeNode } from "./models/tree-node.interface";
 import { TreeDataService } from "./services/tree-data.service";
 import { VisibilityService } from "./services/visibility.service";
@@ -16,16 +23,22 @@ export interface FlatArrayItem {
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [CommonModule, VisibilityTrackerDirective],
+  imports: [
+    CommonModule,
+    VisibilityTrackerDirective,
+    IndeterminateCheckboxDirective,
+  ],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.less",
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, OnDestroy {
   title = "ad-demo";
   flatArray: FlatArrayItem[] = [];
   originalArray: FlatArrayItem[] = [];
   parentOpenState: Record<string, boolean> = {};
   visibleNodes: Record<string, boolean> = {};
+  selectedNodeIds: Set<string> = new Set();
+  lastSelectedNodeId: string | null = null;
 
   firstVisibleIndex: number = 0;
   lastVisibleIndex: number = 0;
@@ -49,7 +62,28 @@ export class AppComponent implements OnInit {
   ngOnInit(): void {
     this.flatArray = this.generateFlatArray();
     this.originalArray = [...this.flatArray];
+    this.setupKeyboardListeners();
   }
+
+  ngOnDestroy(): void {
+    this.removeKeyboardListeners();
+  }
+
+  private setupKeyboardListeners(): void {
+    document.addEventListener("keydown", this.handleKeyDown);
+  }
+
+  private removeKeyboardListeners(): void {
+    document.removeEventListener("keydown", this.handleKeyDown);
+  }
+
+  private handleKeyDown = (event: KeyboardEvent): void => {
+    // Ctrl+A or Cmd+A to select all
+    if ((event.ctrlKey || event.metaKey) && event.key === "a") {
+      event.preventDefault();
+      this.selectAll();
+    }
+  };
 
   scrollToIndex(index: number): void {
     const container = this.treeListRef?.nativeElement;
@@ -278,5 +312,161 @@ export class AppComponent implements OnInit {
    */
   getNode(id: number): TreeNode | undefined {
     return this.treeDataService.getAllNodes()[id];
+  }
+
+  /**
+   * Select a card (child node) with support for Ctrl and Shift modifiers
+   */
+  selectCard(nodeId: string, event: MouseEvent): void {
+    const node = this.flatArray.find((n) => n.id === nodeId);
+    if (!node || node.type !== "child") return;
+
+    if (event.ctrlKey || event.metaKey) {
+      // Ctrl+Click: Toggle selection
+      if (this.selectedNodeIds.has(nodeId)) {
+        this.selectedNodeIds.delete(nodeId);
+      } else {
+        this.selectedNodeIds.add(nodeId);
+      }
+      this.lastSelectedNodeId = nodeId;
+    } else if (event.shiftKey && this.lastSelectedNodeId) {
+      // Shift+Click: Range selection
+      this.selectRange(this.lastSelectedNodeId, nodeId);
+    } else {
+      // Normal click: Select only this one
+      this.selectedNodeIds.clear();
+      this.selectedNodeIds.add(nodeId);
+      this.lastSelectedNodeId = nodeId;
+    }
+  }
+
+  /**
+   * Select a range of child nodes between two IDs
+   */
+  private selectRange(fromId: string, toId: string): void {
+    const fromIndex = this.flatArray.findIndex((n) => n.id === fromId);
+    const toIndex = this.flatArray.findIndex((n) => n.id === toId);
+
+    if (fromIndex === -1 || toIndex === -1) return;
+
+    const start = Math.min(fromIndex, toIndex);
+    const end = Math.max(fromIndex, toIndex);
+
+    for (let i = start; i <= end; i++) {
+      const node = this.flatArray[i];
+      if (node.type === "child") {
+        this.selectedNodeIds.add(node.id);
+      }
+    }
+  }
+
+  /**
+   * Select all child nodes
+   */
+  selectAll(): void {
+    this.selectedNodeIds.clear();
+    this.flatArray.forEach((node) => {
+      if (node.type === "child") {
+        this.selectedNodeIds.add(node.id);
+      }
+    });
+  }
+
+  /**
+   * Check if a card is selected
+   */
+  isCardSelected(nodeId: string): boolean {
+    return this.selectedNodeIds.has(nodeId);
+  }
+
+  /**
+   * Get all leaf child nodes recursively under a parent
+   */
+  private getAllLeafChildren(parentId: string): string[] {
+    const leafChildren: string[] = [];
+    const allNodes = this.treeDataService.getAllNodes();
+    const parent = allNodes[parentId];
+
+    if (!parent || parent.type !== "parent" || !parent.childrenIds) {
+      return leafChildren;
+    }
+
+    parent.childrenIds.forEach((childId) => {
+      const child = allNodes[childId];
+      if (!child) return;
+
+      if (child.type === "child") {
+        // It's a leaf node, add it
+        leafChildren.push(childId);
+      } else if (child.type === "parent") {
+        // It's a parent, recurse
+        leafChildren.push(...this.getAllLeafChildren(childId));
+      }
+    });
+
+    return leafChildren;
+  }
+
+  /**
+   * Toggle selection of all children of a parent (recursive)
+   */
+  toggleParentSelection(parentId: string, event: Event): void {
+    event.stopPropagation(); // Prevent parent toggle from firing
+    event.preventDefault();
+
+    const parent = this.treeDataService.getAllNodes()[parentId];
+
+    if (!parent || !parent.childrenIds || parent.type !== "parent") {
+      return;
+    }
+
+    // Get all leaf children recursively
+    const allLeafChildren = this.getAllLeafChildren(parentId);
+    const allSelected = this.areAllChildrenSelected(parentId);
+
+    // Create a new Set to ensure change detection
+    const newSelection = new Set(this.selectedNodeIds);
+
+    allLeafChildren.forEach((childId) => {
+      if (allSelected) {
+        newSelection.delete(childId);
+      } else {
+        newSelection.add(childId);
+      }
+    });
+
+    this.selectedNodeIds = newSelection;
+  }
+
+  /**
+   * Check if all leaf children of a parent are selected (recursive)
+   */
+  areAllChildrenSelected(parentId: string): boolean {
+    const allLeafChildren = this.getAllLeafChildren(parentId);
+
+    if (allLeafChildren.length === 0) {
+      return false;
+    }
+
+    return allLeafChildren.every((childId) =>
+      this.selectedNodeIds.has(childId)
+    );
+  }
+
+  /**
+   * Check if some (but not all) leaf children of a parent are selected (recursive)
+   */
+  areSomeChildrenSelected(parentId: string): boolean {
+    const allLeafChildren = this.getAllLeafChildren(parentId);
+
+    if (allLeafChildren.length === 0) {
+      return false;
+    }
+
+    const selectedCount = allLeafChildren.filter((childId) =>
+      this.selectedNodeIds.has(childId)
+    ).length;
+
+    return selectedCount > 0 && selectedCount < allLeafChildren.length;
   }
 }
