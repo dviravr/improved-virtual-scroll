@@ -323,27 +323,35 @@ export class AppComponent implements OnInit, OnDestroy {
 
     if (event.ctrlKey || event.metaKey) {
       // Ctrl+Click: Toggle selection
-      if (this.selectedNodeIds.has(nodeId)) {
-        this.selectedNodeIds.delete(nodeId);
+      const newSelection = new Set(this.selectedNodeIds);
+      if (newSelection.has(nodeId)) {
+        newSelection.delete(nodeId);
       } else {
-        this.selectedNodeIds.add(nodeId);
+        newSelection.add(nodeId);
       }
+      this.selectedNodeIds = newSelection;
       this.lastSelectedNodeId = nodeId;
     } else if (event.shiftKey && this.lastSelectedNodeId) {
       // Shift+Click: Range selection
-      this.selectRange(this.lastSelectedNodeId, nodeId);
+      const newSelection = new Set(this.selectedNodeIds);
+      this.selectRange(this.lastSelectedNodeId, nodeId, newSelection);
+      this.selectedNodeIds = newSelection;
     } else {
       // Normal click: Select only this one
-      this.selectedNodeIds.clear();
-      this.selectedNodeIds.add(nodeId);
+      this.selectedNodeIds = new Set([nodeId]);
       this.lastSelectedNodeId = nodeId;
     }
   }
 
   /**
    * Select a range of child nodes between two IDs
+   * If a closed parent is in the range, all its children are selected
    */
-  private selectRange(fromId: string, toId: string): void {
+  private selectRange(
+    fromId: string,
+    toId: string,
+    targetSet: Set<string>
+  ): void {
     const fromIndex = this.flatArray.findIndex((n) => n.id === fromId);
     const toIndex = this.flatArray.findIndex((n) => n.id === toId);
 
@@ -354,8 +362,21 @@ export class AppComponent implements OnInit, OnDestroy {
 
     for (let i = start; i <= end; i++) {
       const node = this.flatArray[i];
+
       if (node.type === "child") {
-        this.selectedNodeIds.add(node.id);
+        // It's a leaf node, select it
+        targetSet.add(node.id);
+      } else if (node.type === "parent") {
+        // It's a parent node
+        if (!this.isParentOpen(node.id)) {
+          // Parent is closed, select all its leaf children recursively
+          const leafChildren = this.getAllLeafChildren(node.id);
+          leafChildren.forEach((childId) => {
+            targetSet.add(childId);
+          });
+        }
+        // If parent is open, its children will be in the flatArray
+        // and will be selected in subsequent iterations
       }
     }
   }
@@ -364,12 +385,13 @@ export class AppComponent implements OnInit, OnDestroy {
    * Select all child nodes
    */
   selectAll(): void {
-    this.selectedNodeIds.clear();
+    const newSelection = new Set<string>();
     this.flatArray.forEach((node) => {
       if (node.type === "child") {
-        this.selectedNodeIds.add(node.id);
+        newSelection.add(node.id);
       }
     });
+    this.selectedNodeIds = newSelection;
   }
 
   /**
