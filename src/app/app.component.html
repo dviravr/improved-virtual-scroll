@@ -1,88 +1,15 @@
-<div class="container">
-  <div class="content">
+<div class="app-container">
+  <div class="app-header">
     <h1>{{ title }}</h1>
+  </div>
 
-    <div class="visibility-info">
-      <div class="info-row">
-        <span class="info-label">Visible Items:</span>
-        <span class="info-value"
-          >{{ getVisibleLength() }} / {{ flatArray.length }}</span
-        >
-        <span class="info-separator">•</span>
-        <span class="info-label">Observers:</span>
-        <span class="info-value observer-count">1 (Shared)</span>
-        <span class="info-separator">•</span>
-        <span class="info-label">Selected:</span>
-        <span class="info-value selected-count">{{
-          selectedNodeIds.size
-        }}</span>
-        <!-- <span class="info-separator">•</span> -->
-        <!-- <span class="info-label">Tracked:</span> -->
-        <!-- <span class="info-value">{{
-          visibilityService.getObservedCount()
-        }}</span> -->
-      </div>
-
-      <div class="visible-range">
-        <span class="range-label">Slice ArrayIndex Range:</span>
-        <span class="range-value">{{ startIndex }} - {{ endIndex }}</span>
-        <span class="range-value">{{ endIndex - startIndex }}</span>
-      </div>
+  <div class="app-content">
+    <div class="component-wrapper">
+      <app-board></app-board>
     </div>
 
-    <div class="tree-container">
-      <!-- Scrollbar Indicator -->
-      <!-- <div class="scrollbar-track"> -->
-      <!-- <div class="scrollbar-thumb" (scroll)="onScroll()" [style.top.%]="getScrollbarTop()"
-          [style.height.%]="getScrollbarHeight()"></div> -->
-      <!-- </div> -->
-
-      <!-- Tree List -->
-      <div class="tree-list" #treeList (scroll)="onScroll()">
-        <div class="spacer" [style.height.px]="topSpacerHeight"></div>
-        @for (node of flatArray | slice: startIndex : endIndex; track node.id) {
-        @if (node.type === 'parent') {
-        <div
-          class="tree-item parent"
-          (click)="toggleParent(node.id)"
-          appVisibilityTracker
-          (visibilityChange)="onVisibilityChange(node.id, $event)"
-          style.margin-left="{{ node.level * 20 }}px"
-        >
-          <span class="toggle-icon" [class.open]="isParentOpen(node.id)"
-            >▶</span
-          >
-          <span class="node-id">Index: {{ findOriginalIndex(node.id) }}</span>
-          <!-- <span class="node-name">{{ getNode(node.id)?.name }}</span> -->
-          <span class="badge">Parent</span>
-          <label class="checkbox-container" (click)="$event.stopPropagation()">
-            <input
-              type="checkbox"
-              [checked]="areAllChildrenSelected(node.id)"
-              [appIndeterminate]="areSomeChildrenSelected(node.id)"
-              (change)="toggleParentSelection(node.id, $event)"
-            />
-            <span class="checkbox-label">Select All</span>
-          </label>
-        </div>
-        } @else {
-        <div
-          class="tree-item child"
-          [class.selected]="isCardSelected(node.id)"
-          appVisibilityTracker
-          style.background-color="{{ getBgColor(node) }}"
-          (click)="selectCard(node.id, $event)"
-          (visibilityChange)="onVisibilityChange(node.id, $event)"
-        >
-          @if (visibleNodes[node.id]) {
-          <span class="node-id">Index: {{ findOriginalIndex(node.id) }}</span>
-          <!-- <span class="node-name">{{ getNode(node.id)?.name }}</span> -->
-          <span class="badge">Child</span>
-          }
-        </div>
-        } }
-        <div class="spacer" [style.height.px]="bottomSpacerHeight"></div>
-      </div>
+    <div class="component-wrapper">
+      <app-card-list></app-card-list>
     </div>
   </div>
 </div>

@@ -1,0 +1,33 @@
+<div class="card-list-container">
+  <div class="card-list-content">
+    <h2>{{ title }}</h2>
+
+    <div class="stats-info">
+      <div class="stat-item">
+        <span class="stat-label">Total Cards:</span>
+        <span class="stat-value">{{ cards.length }}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Selected:</span>
+        <span class="stat-value selected">{{ selectedCardIds.size }}</span>
+      </div>
+    </div>
+
+    <div class="cards-grid">
+      @for (card of cards; track card; let i = $index) {
+      <div class="card-item">
+        <div class="card-header">
+          <span class="card-id">{{ card }}</span>
+          <span class="card-badge">Card</span>
+        </div>
+      </div>
+      }
+    </div>
+
+    @if (cards.length === 0) {
+    <div class="empty-state">
+      <p>No cards available</p>
+    </div>
+    }
+  </div>
+</div>
