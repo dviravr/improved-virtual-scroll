@@ -28,8 +28,4 @@ export class TreeChildComponent implements OnInit {
   ngOnInit(): void {
     this.node$ = this.treeDataService.getNodeById(this.nodeId);
   }
-
-  // onVisibilityChange(id: string, isVisible: boolean): void {
-  //   // this.visibilityChange.emit({ id, isVisible });
-  // }
 }

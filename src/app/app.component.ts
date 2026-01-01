@@ -1,13 +1,13 @@
 import { CommonModule } from "@angular/common";
 import {
+  AfterViewInit,
   Component,
   ElementRef,
-  OnInit,
   OnDestroy,
+  OnInit,
   ViewChild,
 } from "@angular/core";
-import { isEmpty, isNil, keys, values } from "lodash";
-import { VisibilityTrackerDirective } from "./directives/visibility-tracker.directive";
+import { chunk, isNil, keys, sum } from "lodash";
 import { IndeterminateCheckboxDirective } from "./directives/indeterminate-checkbox.directive";
 import { TreeNode } from "./models/tree-node.interface";
 import { TreeDataService } from "./services/tree-data.service";
@@ -23,15 +23,11 @@ export interface FlatArrayItem {
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [
-    CommonModule,
-    VisibilityTrackerDirective,
-    IndeterminateCheckboxDirective,
-  ],
+  imports: [CommonModule, IndeterminateCheckboxDirective],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.less",
 })
-export class AppComponent implements OnInit, OnDestroy {
+export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   title = "ad-demo";
   flatArray: FlatArrayItem[] = [];
   originalArray: FlatArrayItem[] = [];
@@ -40,12 +36,19 @@ export class AppComponent implements OnInit, OnDestroy {
   selectedNodeIds: Set<string> = new Set();
   lastSelectedNodeId: string | null = null;
 
+  gap = 5;
+
+  folderHeight = 54;
+  childHeight = 60;
+
   firstVisibleIndex: number = 0;
   lastVisibleIndex: number = 0;
 
+  boardRows: { id: string; originalIndex: number }[][] = [];
+  refPending = false;
+
   startIndex: number = 0;
-  buffer = 40;
-  endIndex: number = this.startIndex + this.buffer;
+  endIndex: number = 0;
 
   rowHeight = 60; // px – תתאים למה שיש לך ב-CSS
 
@@ -59,8 +62,12 @@ export class AppComponent implements OnInit, OnDestroy {
     public visibilityService: VisibilityService
   ) {}
 
+  ngAfterViewInit(): void {
+    this.updateScrollPosition();
+  }
+
   ngOnInit(): void {
-    this.flatArray = this.generateFlatArray();
+    this.generateFlatArray();
     this.originalArray = [...this.flatArray];
     this.setupKeyboardListeners();
   }
@@ -85,65 +92,62 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   };
 
-  scrollToIndex(index: number): void {
-    const container = this.treeListRef?.nativeElement;
-    if (!container) return;
-
-    const targetScrollTop = index * this.rowHeight;
-    container.scrollTop = targetScrollTop;
+  findFlatArrayIndex(id: string): number {
+    return this.flatArray.findIndex((item) => item.id === id);
   }
 
   findOriginalIndex(id: string): number {
     return this.originalArray.findIndex((item) => item.id === id);
   }
 
-  timeout: any = null;
-  /**
-   * Track visibility changes for items by index
-   */
-
-  getStarIndexByScrollPosition(): number {
-    const el = this.treeListRef?.nativeElement;
-    if (!el) return this.startIndex;
-
-    const scrollTop = el.scrollTop;
-    const maxScroll = el.scrollHeight - el.clientHeight;
-
-    const scrollPercent = scrollTop / maxScroll;
-
-    const newStart = this.getStartIndexFromScrollPercent(scrollPercent);
-
-    return newStart;
-  }
-
-  getStartIndexFromScrollPercent(scrollPercent: number): number {
-    const total = this.flatArray.length;
-    const maxStart = total - this.buffer;
-
-    return Math.floor(scrollPercent * maxStart);
-  }
-
   onScroll() {
-    if (isEmpty(values(this.visibleNodes))) {
-      const idx = this.getStarIndexByScrollPosition();
-
-      this.startIndex = idx;
-      this.endIndex = this.startIndex + this.buffer;
-
-      this.scrollToIndex(this.startIndex);
-    }
+    if (this.refPending) return;
+    this.refPending = true;
+    requestAnimationFrame(() => {
+      this.refPending = false;
+      this.updateScrollPosition();
+    });
   }
 
-  onVisibilityChange(id: string, isVisible: boolean): void {
-    if (isVisible) {
-      this.visibleNodes[id] = true;
-    } else {
-      delete this.visibleNodes[id];
-    }
-    if (this.visibleNodes[id]) {
-      this.updateIndexRange();
-    }
+  calcBoardRows(): void {
+    this.boardRows = [];
+    const req = (id: string) => {
+      const node = this.getNode(id);
+      if (!node) return;
+      if (node.type === "parent") {
+        this.boardRows.push([
+          { id, originalIndex: this.findFlatArrayIndex(id) },
+        ]);
+        const firstChild = node.childrenIds?.[0];
+        const childNode = this.flatArray.find((item) => item.id === firstChild);
+        if (childNode) {
+          if (childNode?.type === "parent") {
+            node.childrenIds.forEach((childId) => {
+              req(childId);
+            });
+          } else {
+            this.boardRows.push(
+              ...chunk(
+                node.childrenIds.map((id) => ({
+                  id,
+                  originalIndex: this.findFlatArrayIndex(id),
+                })),
+                this.maxCardsPerRow
+              )
+            );
+          }
+        }
+      }
+    };
+    this.flatArray
+      .filter((item) => item.type === "parent" && item.level === 0)
+      .forEach((item) => {
+        req(item.id);
+      });
+
+    console.log(this.boardRows);
   }
+
   getBgColor(item: FlatArrayItem): string {
     const parent = this.treeDataService.getAllNodes()[item.currentParentId];
     const itemIndexInChildren = parent?.childrenIds?.indexOf(item.id)!;
@@ -160,65 +164,34 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   }
 
-  getElementStartOfRowIndex(item: FlatArrayItem): number {
-    const parent = this.treeDataService.getAllNodes()[item.currentParentId];
-    const itemIndexInChildren = parent?.childrenIds?.indexOf(item.id)!;
-    const itemIndexInRow = itemIndexInChildren % this.maxCardsPerRow;
-    const startOfRowIndex = itemIndexInChildren - itemIndexInRow;
-    const startOfRowItemId = parent?.childrenIds?.[startOfRowIndex];
+  updateScrollPosition(): void {
+    const container = this.treeListRef?.nativeElement;
+    if (!container) return;
 
-    return this.flatArray.findIndex((i) => i.id === startOfRowItemId);
-  }
-
-  updateIndexRange(): void {
-    if ((this.treeListRef?.nativeElement as HTMLDivElement).scrollTop === 0) {
-      (this.treeListRef?.nativeElement as HTMLDivElement).scrollTop = 1;
-    }
-
-    const visibleItems = this.getVisibleLength();
-    let firstVisibleIndex: number | undefined;
-    let lastVisibleIndex: number | undefined;
-
-    this.flatArray.forEach((item, index) => {
-      if (this.visibleNodes[item.id]) {
-        if (isNil(firstVisibleIndex)) firstVisibleIndex = index;
-        lastVisibleIndex = index;
-      }
-    });
-
-    if (isNil(firstVisibleIndex) || isNil(lastVisibleIndex)) {
-      console.error("No visible items found");
-      return;
-    }
-
-    this.firstVisibleIndex = firstVisibleIndex;
-    this.lastVisibleIndex = lastVisibleIndex;
-
-    const startIndex = Math.max(0, firstVisibleIndex - visibleItems);
-    const item = this.flatArray[startIndex];
-
-    if (item.type === "child") {
-      this.startIndex = this.getElementStartOfRowIndex(item);
-    } else {
-      this.startIndex = startIndex;
-    }
-
-    this.endIndex = Math.min(
-      this.flatArray.length,
-      lastVisibleIndex + visibleItems
-    );
+    const targetScrollTop = this.startIndex * this.rowHeight;
+    container.scrollTop = targetScrollTop;
   }
 
   getVisibleLength(): number {
-    return keys(this.visibleNodes).length;
+    return this.endIndex - this.startIndex;
   }
 
-  /**
-   * Calculate scrollbar thumb position as percentage
-   */
-  getScrollbarTop(): number {
-    if (this.flatArray.length === 0) return 0;
-    return (this.firstVisibleIndex / this.flatArray.length) * 100;
+  calcSpacerHeight(rows: { id: string; originalIndex: number }[][]): number {
+    if (rows.length === 0) return 0;
+
+    return (
+      this.gap * (rows.length - 1) +
+      sum(
+        rows.map((row) => {
+          const node = this.getNode(row[0].id);
+          if (node?.type === "parent") {
+            return this.folderHeight;
+          } else {
+            return this.childHeight;
+          }
+        })
+      )
+    );
   }
 
   get topSpacerHeight(): number {
@@ -230,15 +203,6 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Calculate scrollbar thumb height as percentage
-   */
-  getScrollbarHeight(): number {
-    if (this.flatArray.length === 0) return 0;
-    const visibleRange = this.lastVisibleIndex - this.firstVisibleIndex + 1;
-    return (visibleRange / this.flatArray.length) * 100;
-  }
-
-  /**
    * Toggle a parent's open/closed state
    */
   toggleParent(parentId: string): void {
@@ -246,7 +210,7 @@ export class AppComponent implements OnInit, OnDestroy {
       ? false
       : !this.parentOpenState[parentId];
 
-    this.flatArray = this.generateFlatArray();
+    this.generateFlatArray();
 
     this.endIndex = this.startIndex + this.getVisibleLength();
   }
@@ -262,7 +226,7 @@ export class AppComponent implements OnInit, OnDestroy {
    * Generate a completely flat array with hierarchy
    * Structure: grandparent -> parents -> children
    */
-  private generateFlatArray(): FlatArrayItem[] {
+  private generateFlatArray() {
     const result: FlatArrayItem[] = [];
     const firstParentNodes = this.treeDataService.getFirstParentNodes();
 
@@ -304,13 +268,14 @@ export class AppComponent implements OnInit, OnDestroy {
       }
     });
 
-    return result;
+    this.flatArray = result;
+    this.calcBoardRows();
   }
 
   /**
    * Get a node by ID
    */
-  getNode(id: number): TreeNode | undefined {
+  getNode(id: string): TreeNode | undefined {
     return this.treeDataService.getAllNodes()[id];
   }
 
