@@ -10,7 +10,7 @@ function generateTreeMockData(): Record<string, TreeNode> {
   const treeData: Record<string, TreeNode> = {};
 
   // Create 2 grand parent nodes (IDs: 1, 2)
-  const grandParentIds = ["1", "2"];
+  const grandParentIds = ["1", "2", "3", "4"];
   grandParentIds.forEach((id) => {
     treeData[id] = <ParentNode>{
       id,
@@ -39,10 +39,23 @@ function generateTreeMockData(): Record<string, TreeNode> {
     }
   });
 
-  const allParentIds = ["10", "11", "12", "20", "21", "22"];
+  const allParentIds = [
+    "10",
+    "11",
+    "12",
+    "20",
+    "21",
+    "22",
+    "30",
+    "31",
+    "32",
+    "40",
+    "41",
+    "42",
+  ];
 
   // Create 100 child nodes (IDs 9-108)
-  for (let id = 100; id <= 150; id++) {
+  for (let id = 100; id <= 200; id++) {
     const childIndex = `${id - 99}`;
 
     // Randomly assign 1-3 parents to each child

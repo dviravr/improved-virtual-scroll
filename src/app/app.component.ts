@@ -54,6 +54,11 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
   maxCardsPerRow: number = 4;
 
+  // Virtual scroll settings
+  bufferRows: number = 3; // Number of rows to render before/after visible area
+  visibleStartRowIndex: number = 0;
+  visibleEndRowIndex: number = 0;
+
   @ViewChild("treeList", { read: ElementRef })
   treeListRef?: ElementRef<HTMLDivElement>;
 
@@ -144,8 +149,6 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
       .forEach((item) => {
         req(item.id);
       });
-
-    console.log(this.boardRows);
   }
 
   getBgColor(item: FlatArrayItem): string {
@@ -166,10 +169,82 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
   updateScrollPosition(): void {
     const container = this.treeListRef?.nativeElement;
-    if (!container) return;
+    if (!container || this.boardRows.length === 0) return;
 
-    const targetScrollTop = this.startIndex * this.rowHeight;
-    container.scrollTop = targetScrollTop;
+    const scrollTop = container.scrollTop;
+    const viewportHeight = container.clientHeight;
+
+    // Calculate row offsets (cumulative heights)
+    const rowOffsets = this.getRowOffsets();
+    // const totalHeight = rowOffsets[rowOffsets.length - 1] || 0;
+
+    // Find first visible row using binary search
+    let firstVisibleRow = this.findRowAtOffset(scrollTop, rowOffsets);
+    let lastVisibleRow = this.findRowAtOffset(
+      scrollTop + viewportHeight,
+      rowOffsets
+    );
+
+    // Apply buffer rows
+    const startRowIndex = Math.max(0, firstVisibleRow - this.bufferRows);
+    const endRowIndex = Math.min(
+      this.boardRows.length - 1,
+      lastVisibleRow + this.bufferRows
+    );
+
+    this.visibleStartRowIndex = startRowIndex;
+    this.visibleEndRowIndex = endRowIndex;
+
+    // Get flat array indices from the row range
+    if (this.boardRows[startRowIndex] && this.boardRows[endRowIndex]) {
+      // Start index is the first item's originalIndex in the start row
+      this.startIndex = this.boardRows[startRowIndex][0].originalIndex;
+
+      // End index is the last item's originalIndex in the end row + 1
+      const endRow = this.boardRows[endRowIndex];
+      this.endIndex = endRow[endRow.length - 1].originalIndex + 1;
+    }
+  }
+
+  /**
+   * Get cumulative offsets for each row (position where each row ends)
+   */
+  private getRowOffsets(): number[] {
+    const offsets: number[] = [];
+    let cumulative = 0;
+
+    for (let i = 0; i < this.boardRows.length; i++) {
+      const row = this.boardRows[i];
+      const node = this.getNode(row[0].id);
+      const rowHeight =
+        node?.type === "parent" ? this.folderHeight : this.childHeight;
+      cumulative += rowHeight + (i > 0 ? this.gap : 0);
+      offsets.push(cumulative);
+    }
+
+    return offsets;
+  }
+
+  /**
+   * Binary search to find which row is at a given scroll offset
+   */
+  private findRowAtOffset(offset: number, rowOffsets: number[]): number {
+    if (offset <= 0) return 0;
+    if (rowOffsets.length === 0) return 0;
+
+    let low = 0;
+    let high = rowOffsets.length - 1;
+
+    while (low < high) {
+      const mid = Math.floor((low + high) / 2);
+      if (rowOffsets[mid] < offset) {
+        low = mid + 1;
+      } else {
+        high = mid;
+      }
+    }
+
+    return low;
   }
 
   getVisibleLength(): number {
@@ -195,11 +270,21 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   get topSpacerHeight(): number {
-    return this.startIndex * this.rowHeight;
+    if (this.visibleStartRowIndex === 0) return 0;
+    return this.calcSpacerHeight(
+      this.boardRows.slice(0, this.visibleStartRowIndex)
+    );
   }
 
   get bottomSpacerHeight(): number {
-    return (this.flatArray.length - this.endIndex) * this.rowHeight;
+    if (this.visibleEndRowIndex >= this.boardRows.length - 1) return 0;
+    return this.calcSpacerHeight(
+      this.boardRows.slice(this.visibleEndRowIndex + 1)
+    );
+  }
+
+  get totalContentHeight(): number {
+    return this.calcSpacerHeight(this.boardRows);
   }
 
   /**
@@ -211,6 +296,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
       : !this.parentOpenState[parentId];
 
     this.generateFlatArray();
+    this.updateScrollPosition();
 
     this.endIndex = this.startIndex + this.getVisibleLength();
   }
