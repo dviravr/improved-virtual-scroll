@@ -14,12 +14,33 @@
     </div>
 
     <div class="cards-grid">
-      @for (card of cards; track card; let i = $index) {
-      <div class="card-item">
+      @for (card of cards; track card.id; let i = $index;) {
+      <div
+        class="card-item"
+        cdkDropList
+        [id]="card.id"
+        [cdkDropListSortingDisabled]="true"
+        [cdkDropListConnectedTo]="['board-drop-list']"
+        (cdkDropListDropped)="onCardDrop($event, card.id)"
+      >
         <div class="card-header">
-          <span class="card-id">{{ card }}</span>
-          <span class="card-badge">Card</span>
+          <span class="card-id">{{ card.name }}</span>
+          <span class="card-badge">{{
+            card.type === "child" ? "Board Card" : "Card"
+          }}</span>
         </div>
+        @if (card.matchedWith) {
+        <div class="matched-card">
+          <span class="match-label">Matched with:</span>
+          <span class="match-id">{{ card.matchedWith.id }}</span>
+          <button
+            class="remove-match-btn"
+            (click)="removeMatch(card.id, $event)"
+          >
+            ×
+          </button>
+        </div>
+        }
       </div>
       }
     </div>

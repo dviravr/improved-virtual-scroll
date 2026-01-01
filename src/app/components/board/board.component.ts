@@ -12,6 +12,7 @@ import { IndeterminateCheckboxDirective } from "../../directives/indeterminate-c
 import { TreeNode } from "../../models/tree-node.interface";
 import { TreeDataService } from "../../services/tree-data.service";
 import { VisibilityService } from "../../services/visibility.service";
+import { CdkDragExit, DragDropModule } from "@angular/cdk/drag-drop";
 
 export interface FlatArrayItem {
   type: "parent" | "child";
@@ -27,6 +28,7 @@ export interface FlatArrayItem {
     CommonModule,
     VisibilityTrackerDirective,
     IndeterminateCheckboxDirective,
+    DragDropModule,
   ],
   templateUrl: "./board.component.html",
   styleUrl: "./board.component.less",
@@ -50,9 +52,15 @@ export class BoardComponent implements OnInit, OnDestroy {
   rowHeight = 60; // px – תתאים למה שיש לך ב-CSS
 
   maxCardsPerRow: number = 4;
+  currentDraggedItemId: string | null = null;
 
   @ViewChild("treeList", { read: ElementRef })
   treeListRef?: ElementRef<HTMLDivElement>;
+
+  cardListDropListIds: string[] = Array.from(
+    { length: 20 },
+    (_, i) => `card-${i + 1}`
+  );
 
   constructor(
     private treeDataService: TreeDataService,
@@ -490,5 +498,54 @@ export class BoardComponent implements OnInit, OnDestroy {
     ).length;
 
     return selectedCount > 0 && selectedCount < allLeafChildren.length;
+  }
+
+  /**
+   * Set the card list drop list IDs for connection
+   */
+  setCardListDropListIds(ids: string[]): void {
+    this.cardListDropListIds = ids;
+  }
+
+  /**
+   * Handle drop events on the board - prevent any changes
+   */
+  onBoardDrop(event: any): void {
+    console.log("Board drop event (ignored):", event);
+    // Don't do anything - we want items to stay in place
+    // No moveItemInArray or transferArrayItem calls
+  }
+
+  /**
+   * Handle drag start event
+   */
+  onDragStarted(nodeId: string): void {
+    // this.currentDraggedItemId = nodeId;
+    console.log("Drag started:", nodeId);
+  }
+
+  /**
+   * Handle drag end event
+   */
+  onDragEnded(): void {
+    console.log("Drag ended:", this.currentDraggedItemId);
+    this.currentDraggedItemId = null;
+  }
+
+  /**
+   * Handle drag entered event
+   */
+  onDragEntered(event: any): void {
+    this.currentDraggedItemId = null;
+    console.log("Drag entered:", event);
+  }
+
+  /**
+   * Handle drag exited event
+   */
+  onDragExited(event: any): void {
+    this.currentDraggedItemId = event.item.data.id;
+    console.log(this.currentDraggedItemId);
+    console.log("Drag exited:", event);
   }
 }

@@ -3,7 +3,6 @@
   height: 100%;
 
   .board-content {
-    width: 100%;
     height: 100%;
     background-color: rgb(45, 45, 45);
     padding: 20px;
@@ -183,13 +182,31 @@
         align-items: center;
         justify-content: center;
         font-weight: 600;
-        cursor: pointer;
+        cursor: move;
         border: 2px solid transparent;
         box-sizing: border-box;
         transition: border-color 0.2s, box-shadow 0.2s;
 
         &:hover {
           border-color: rgba(139, 92, 246, 0.5);
+        }
+
+        .card-item {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        // Drag and drop styles
+        &.cdk-drag-dragging {
+          opacity: 0.5;
+          cursor: grabbing;
+        }
+
+        &.cdk-drag-animating {
+          transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
         }
 
         &.selected {
@@ -240,3 +257,36 @@
   }
 }
 
+// Global CDK drag preview styles
+:host ::ng-deep .cdk-drag-preview {
+  box-sizing: border-box;
+  border-radius: 4px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  opacity: 0.9;
+  cursor: grabbing;
+
+  // Style for board child cards
+  &.tree-item.child {
+    width: 175px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #8b5cf6;
+    font-weight: 600;
+
+    .card-item {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+
+  // Style for card-list items
+  &.card-item {
+    min-height: 80px;
+    padding: 16px;
+  }
+}

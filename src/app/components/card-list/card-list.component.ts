@@ -1,18 +1,18 @@
+import { CdkDragDrop, DragDropModule } from "@angular/cdk/drag-drop";
 import { CommonModule } from "@angular/common";
 import { Component, OnInit } from "@angular/core";
 import { TreeDataService } from "../../services/tree-data.service";
-import { TreeNode } from "../../models/tree-node.interface";
 
 @Component({
   selector: "app-card-list",
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, DragDropModule],
   templateUrl: "./card-list.component.html",
   styleUrl: "./card-list.component.less",
 })
 export class CardListComponent implements OnInit {
   title = "Card List View";
-  cards: string[] = [];
+  cards: any[] = [];
   selectedCardIds: Set<string> = new Set();
 
   constructor(private treeDataService: TreeDataService) {}
@@ -25,7 +25,19 @@ export class CardListComponent implements OnInit {
    * Load all child cards (leaf nodes) from the tree
    */
   loadAllCards(): void {
-    this.cards = Array.from({ length: 20 }, (_, index) => `Card ${index + 1}`);
+    this.cards = Array.from({ length: 20 }, (_, index) => ({
+      id: `card-${index + 1}`,
+      name: `Card ${index + 1}`,
+      type: "card",
+      matchedWith: null,
+    }));
+  }
+
+  /**
+   * Get array of all card IDs for connecting drop lists
+   */
+  getCardIds(): string[] {
+    return this.cards.map((card) => card.id);
   }
 
   /**
@@ -74,5 +86,43 @@ export class CardListComponent implements OnInit {
     if (!parentId) return "Unknown";
     const allNodes = this.treeDataService.getAllNodes();
     return allNodes[parentId]?.name || parentId;
+  }
+
+  /**
+   * Handle drop event when a board card is dropped onto a card-list card
+   */
+  onCardDrop(event: CdkDragDrop<any[]>, targetCardId: string): void {
+    console.log("Card drop event:", event, "Target:", targetCardId);
+
+    // Don't actually move items between containers
+    if (event.previousContainer !== event.container) {
+      // Find the target card
+      const targetCard = this.cards.find((c) => c.id === targetCardId);
+      if (!targetCard) return;
+
+      // Get the dragged data
+      const draggedData = event.item.data;
+
+      if (draggedData && draggedData.id) {
+        // Store the match (copy the reference, don't move the item)
+        targetCard.matchedWith = { ...draggedData };
+        console.log(
+          `Matched ${targetCardId} with board card ${draggedData.id}`
+        );
+      }
+    }
+    // Note: We don't call transferArrayItem or moveItemInArray
+    // This ensures the original item stays in place
+  }
+
+  /**
+   * Remove a match
+   */
+  removeMatch(cardId: string, event: Event): void {
+    event.stopPropagation();
+    const card = this.cards.find((c) => c.id === cardId);
+    if (card) {
+      card.matchedWith = null;
+    }
   }
 }

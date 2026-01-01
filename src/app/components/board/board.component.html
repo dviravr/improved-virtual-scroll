@@ -27,7 +27,18 @@
 
     <div class="tree-container">
       <!-- Tree List -->
-      <div class="tree-list" #treeList (scroll)="onScroll()">
+      <div
+        class="tree-list"
+        #treeList
+        (scroll)="onScroll()"
+        cdkDropList
+        id="board-drop-list"
+        [cdkDropListData]="flatArray"
+        [cdkDropListConnectedTo]="cardListDropListIds"
+        [cdkDropListSortingDisabled]="true"
+        (cdkDropListEntered)="onDragEntered($event)"
+        (cdkDropListExited)="onDragExited($event)"
+      >
         <div class="spacer" [style.height.px]="topSpacerHeight"></div>
         @for (node of flatArray | slice: startIndex : endIndex; track node.id) {
         @if (node.type === 'parent') {
@@ -61,16 +72,31 @@
           style.background-color="{{ getBgColor(node) }}"
           (click)="selectCard(node.id, $event)"
           (visibilityChange)="onVisibilityChange(node.id, $event)"
+          cdkDrag
+          [cdkDragData]="node"
+          (cdkDragStarted)="onDragStarted(node.id)"
+          (cdkDragEnded)="onDragEnded()"
         >
           @if (visibleNodes[node.id]) {
-          <span class="node-id">Index: {{ findOriginalIndex(node.id) }}</span>
-          <span class="badge">Child</span>
+          <div class="card-item">
+            <span class="node-id">Index: {{ findOriginalIndex(node.id) }}</span>
+            <span class="badge">Child</span>
+          </div>
           }
         </div>
-        } }
+        }
+            @if (node.id === currentDraggedItemId) {
+                <div class="tree-item child drag-preview">
+                    <div class="card-item">
+              <span class="node-id"
+              >Index: {{ findOriginalIndex(node.id) }}</span
+              >
+                        <span class="badge">Child</span>
+                    </div>
+                </div>
+            }}
         <div class="spacer" [style.height.px]="bottomSpacerHeight"></div>
       </div>
     </div>
   </div>
 </div>
-
